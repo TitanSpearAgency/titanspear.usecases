@@ -11,22 +11,10 @@ interface Message {
 
 const SYSTEM_INSTRUCTION = `
 Du bist der Senior Automation Consultant von "titanspear.ai". 
-Deine Aufgabe ist es, Website-Besucher zu beraten und ihnen die passenden Automatisierungs-Lösungen aus unserem Portfolio zu verkaufen.
-
-HIER IST DEIN WISSEN (UNSERE USE CASES):
+Deine Aufgabe ist es, Website-Besucher zu beraten.
+HIER IST DEIN WISSEN:
 ${JSON.stringify(USE_CASES_DATA, null, 2)}
-
-VERHALTENSREGELN:
-1. Analysiere das Problem des Nutzers.
-2. Suche im "Wissen" nach dem passenden Use Case (nutze die ID oder den Titel).
-3. Erkläre die Lösung kurz und prägnant. Fokussiere dich IMMER auf den ROI (Zahlen, Geld, Zeitersparnis aus den Daten).
-4. Sei professionell, "Cyber-Corporate", und selbstbewusst.
-5. Wenn du einen Use Case empfiehlst, nenne konkrete Zahlen aus den Daten (z.B. "Spart 15h/Woche").
-6. Sprich Deutsch.
-7. Halte Antworten unter 100 Wörtern, wenn möglich. Sei knackig.
-
-Beispiel User: "Wir haben zu viele Retouren."
-Beispiel Antwort: "Das ist ein klassischer Profit-Killer. Ich empfehle unsere 'Retouren-Prävention'. Unsere KI ruft Kunden proaktiv an und klärt Bedienfehler. Das senkt Retouren um 35% und rettet ca. 15€ pro Paket. Soll ich mehr dazu sagen?"
+Antworte kurz, professionell und verkaufsorientiert.
 `;
 
 const ChatBot: React.FC = () => {
@@ -47,7 +35,13 @@ const ChatBot: React.FC = () => {
     }, [messages, isOpen]);
 
     const getClient = async () => {
-        // Access window.aistudio safely with casting
+        // 1. VERCEL / VITE CHECK (WICHTIG!)
+        // Fix: Cast import.meta to any to bypass missing type definition for env
+        if ((import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
+            return new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_API_KEY });
+        }
+
+        // 2. Local / AI Studio Check
         if (typeof window !== 'undefined') {
             const win = window as any;
             if (win.aistudio) {
@@ -55,19 +49,20 @@ const ChatBot: React.FC = () => {
                 if (!hasKey) {
                     await win.aistudio.openSelectKey();
                 }
+                return new GoogleGenAI({ apiKey: 'proxy' });
             }
         }
         
-        let apiKey = '';
+        // 3. Node Env Fallback
         try {
-            // Strict safe access for deployment build
-            const proc = (typeof process !== 'undefined' ? process : { env: {} }) as any;
-            if (proc && proc.env) {
-                apiKey = proc.env.API_KEY || '';
+            // @ts-ignore
+            if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+                // @ts-ignore
+                return new GoogleGenAI({ apiKey: process.env.API_KEY });
             }
         } catch (e) {}
-
-        return new GoogleGenAI({ apiKey });
+        
+        return null;
     };
 
     const handleSend = async () => {
@@ -80,6 +75,10 @@ const ChatBot: React.FC = () => {
 
         try {
             const ai = await getClient();
+            
+            if (!ai) {
+                throw new Error("API Key fehlt. Bitte VITE_API_KEY in Vercel konfigurieren.");
+            }
             
             const chat = ai.chats.create({
                 model: 'gemini-2.5-flash',
@@ -96,11 +95,13 @@ const ChatBot: React.FC = () => {
             const result = await chat.sendMessage({ message: userMsg });
             const responseText = result.text;
 
-            setMessages(prev => [...prev, { role: 'model', text: responseText || "Entschuldigung, ich konnte keine Antwort generieren." }]);
+            setMessages(prev => [...prev, { role: 'model', text: responseText || "Keine Antwort erhalten." }]);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Chat Error:", error);
-            setMessages(prev => [...prev, { role: 'model', text: "Verbindungsfehler. Bitte stellen Sie sicher, dass ein API Key gewählt ist." }]);
+            let errMsg = "Ein Fehler ist aufgetreten.";
+            if (error.message && error.message.includes("Key")) errMsg = "System-Fehler: API Key fehlt.";
+            setMessages(prev => [...prev, { role: 'model', text: errMsg }]);
         } finally {
             setIsLoading(false);
         }
@@ -108,7 +109,6 @@ const ChatBot: React.FC = () => {
 
     return (
         <>
-            {/* New "Pill" Style Trigger Button */}
             <AnimatePresence>
                 {!isOpen && (
                     <motion.button
@@ -118,13 +118,10 @@ const ChatBot: React.FC = () => {
                         className="fixed bottom-6 right-6 z-50 flex items-center gap-3 pl-4 pr-5 py-3 bg-gradient-to-r from-cyan-900 to-black border border-cyan-500/50 rounded-full shadow-[0_0_20px_rgba(6,182,212,0.4)] group hover:scale-105 transition-all"
                         onClick={() => setIsOpen(true)}
                     >
-                        {/* Icon Container with Pulse */}
                         <div className="relative w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-black">
                              <Sparkles size={16} className="animate-pulse" />
                              <div className="absolute inset-0 bg-cyan-400 rounded-full animate-ping opacity-30" />
                         </div>
-
-                        {/* Text Content */}
                         <div className="flex flex-col items-start text-left">
                             <span className="text-[10px] text-cyan-400 uppercase font-bold tracking-wider leading-none mb-0.5">
                                 AI Consultant
@@ -137,7 +134,6 @@ const ChatBot: React.FC = () => {
                 )}
             </AnimatePresence>
 
-            {/* Close Button (Only visible when open) */}
             {isOpen && (
                  <motion.button
                     className="fixed bottom-6 right-6 z-50 w-12 h-12 bg-black/80 border border-slate-700 text-slate-400 hover:text-white hover:border-white rounded-full flex items-center justify-center transition-all shadow-xl"
@@ -149,7 +145,6 @@ const ChatBot: React.FC = () => {
                  </motion.button>
             )}
 
-            {/* Chat Window */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -158,7 +153,6 @@ const ChatBot: React.FC = () => {
                         exit={{ opacity: 0, y: 50, scale: 0.9 }}
                         className="fixed bottom-24 right-4 md:right-6 z-50 w-[90vw] md:w-[400px] h-[500px] md:h-[600px] bg-black/80 backdrop-blur-xl border border-cyan-500/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-white/5"
                     >
-                        {/* Header */}
                         <div className="p-4 bg-gradient-to-r from-cyan-950/80 to-slate-900/80 border-b border-white/10 flex items-center gap-3 justify-between backdrop-blur-md">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center relative shadow-[0_0_10px_rgba(6,182,212,0.2)]">
@@ -177,7 +171,6 @@ const ChatBot: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* Messages */}
                         <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                             {messages.map((msg, idx) => (
                                 <motion.div 
@@ -220,7 +213,6 @@ const ChatBot: React.FC = () => {
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input */}
                         <div className="p-4 border-t border-white/10 bg-black/60 backdrop-blur-md">
                             <div className="relative flex items-center group">
                                 <input

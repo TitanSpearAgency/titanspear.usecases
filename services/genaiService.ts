@@ -1,30 +1,34 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Helper to safely get API Key without triggering build errors
+// Helper to safely get API Key from all possible sources
 const getApiKey = (): string => {
     try {
-        // Access process safely via explicit cast to any to avoid TS build errors
-        const proc = (typeof process !== 'undefined' ? process : { env: {} }) as any;
-        if (proc && proc.env && proc.env.API_KEY) {
-            return proc.env.API_KEY;
+        // 1. Check Vite standard env var (Recommended for Vercel/Frontend)
+        // Fix: Cast import.meta to any to bypass missing type definition for env
+        if ((import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
+            return (import.meta as any).env.VITE_API_KEY;
+        }
+        
+        // 2. Check Google IDX / Node standard
+        // @ts-ignore
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            // @ts-ignore
+            return process.env.API_KEY;
         }
     } catch (e) {
-        // ignore errors
+        // ignore
     }
     return '';
 };
 
 const getClient = async (): Promise<GoogleGenAI | null> => {
-    // Safety check: ensure we are in a browser environment
     if (typeof window === 'undefined') return null;
 
-    // Aggressive cast to any to bypass TS checks
     const win = window as any;
     const aistudio = win.aistudio;
 
-    if (!aistudio) {
-        console.warn("AI Studio (window.aistudio) not found. Interactive features may be limited.");
-    } else {
+    // Prioritize AI Studio Auth if available (e.g. in IDX)
+    if (aistudio) {
         try {
             const hasKey = await aistudio.hasSelectedApiKey();
             if (!hasKey) {
@@ -36,7 +40,8 @@ const getClient = async (): Promise<GoogleGenAI | null> => {
     }
 
     const apiKey = getApiKey();
-    // Return client even if key is empty, error will be handled by the call
+    
+    // Return client even if key is empty, will fail gracefully later if needed
     return new GoogleGenAI({ apiKey });
 };
 
@@ -47,28 +52,26 @@ export const generateVeoVideo = async (
     try {
         const ai = await getClient();
         if (!ai) {
-            onProgress("System Error: AI Client could not be initialized.");
+            onProgress("System Error: AI Client init failed.");
             return null;
         }
 
-        onProgress("Initialisiere Veo-3.1-Fast Engine...");
+        onProgress("Initialisiere Veo-3.1...");
         
-        // Initial generation request
         let operation = await ai.models.generateVideos({
             model: 'veo-3.1-fast-generate-preview',
             prompt: prompt,
             config: {
                 numberOfVideos: 1,
-                resolution: '720p', // Preview default
+                resolution: '720p',
                 aspectRatio: '16:9'
             }
         });
 
-        onProgress("Rendering läuft... (Dies kann 1-2 Minuten dauern)");
+        onProgress("Rendering läuft...");
 
-        // Polling loop
         while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
+            await new Promise(resolve => setTimeout(resolve, 5000));
             onProgress("Rendering läuft... Video wird generiert...");
             operation = await ai.operations.getVideosOperation({ operation: operation });
         }
@@ -76,12 +79,11 @@ export const generateVeoVideo = async (
         const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
 
         if (!videoUri) {
-            throw new Error("No video URI returned from Veo.");
+            throw new Error("No video URI returned.");
         }
 
         onProgress("Video wird heruntergeladen...");
 
-        // Fetch the actual video bytes using the key
         const key = getApiKey();
         const response = await fetch(`${videoUri}&key=${key}`);
         
@@ -93,16 +95,14 @@ export const generateVeoVideo = async (
         return URL.createObjectURL(blob);
 
     } catch (error: any) {
-        console.error("Veo Generation Error:", error);
+        console.error("Veo Error:", error);
         
-        // Check for "Requested entity was not found" (404) which implies invalid key/project access
-        const errorMsg = error.message || JSON.stringify(error);
+        const errorMsg = error?.message || JSON.stringify(error);
         if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("404")) {
              const win = window as any;
              if (win.aistudio) {
-                 console.log("404 detected, prompting for new key selection...");
                  await win.aistudio.openSelectKey();
-                 throw new Error("API Key access denied (404). Please select a paid GCP project key.");
+                 throw new Error("API Key invalid. Please select a paid project.");
              }
         }
         throw error;
