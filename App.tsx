@@ -3,14 +3,13 @@ import React from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import UseCasesDashboard from './components/UseCasesDashboard';
-import InteractiveDemo from './components/InteractiveDemo';
 import Process from './components/Process';
 import ROICalculator from './components/ROICalculator';
-import TechSpecs from './components/TechSpecs';
 import FAQ from './components/FAQ';
 import CTASection from './components/CTASection';
 import Footer from './components/Footer';
 import ChatBot from './components/ChatBot';
+import TrustSection from './components/TrustSection';
 
 function App() {
   return (
@@ -19,10 +18,9 @@ function App() {
       <main>
         <Hero />
         <UseCasesDashboard />
-        <InteractiveDemo />
         <Process />
+        <TrustSection />
         <ROICalculator />
-        <TechSpecs />
         <FAQ />
         <CTASection />
       </main>

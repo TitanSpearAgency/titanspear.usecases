@@ -1,5 +1,5 @@
 {
-  "name": "titanspear.ai",
+  "name": "titanspear.ai---staatlich-akkreditierte-ki-beratung",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,7 +14,11 @@
     "lucide-react": "^0.554.0",
     "framer-motion": "^12.23.24",
     "recharts": "^3.4.1",
-    "@google/genai": "^1.30.0"
+    "@google/genai": "^1.30.0",
+    "clsx": "latest",
+    "tailwind-merge": "latest",
+    "@splinetool/react-spline": "4.0.0",
+    "@splinetool/runtime": "1.5.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

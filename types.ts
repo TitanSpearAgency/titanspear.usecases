@@ -1,3 +1,4 @@
+
 import { LucideIcon } from 'lucide-react';
 
 export interface CalculatorConfig {
@@ -20,7 +21,7 @@ export interface UseCase {
   solution: string;
   detailedPain?: string;
   detailedSolution?: string;
-  workflowSteps?: string[];
+  benefits?: string[];
   roiStats?: { label: string; value: string }[];
   veoPrompt: string;
   iconName: string; 
@@ -32,6 +33,7 @@ export interface UseCase {
 export interface UseCaseCategory {
   id: string;
   name: string;
+  iconName: string;
   cases: UseCase[];
 }
 
