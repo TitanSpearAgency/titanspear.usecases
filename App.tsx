@@ -10,6 +10,7 @@ import CTASection from './components/CTASection';
 import Footer from './components/Footer';
 import ChatBot from './components/ChatBot';
 import TrustSection from './components/TrustSection';
+import TechSpecs from './components/TechSpecs';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <UseCasesDashboard />
         <Process />
         <TrustSection />
+        <TechSpecs />
         <ROICalculator />
         <FAQ />
         <CTASection />
